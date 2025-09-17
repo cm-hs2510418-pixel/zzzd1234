@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>양궁 게임</title>
+<style>
+  body { margin:0; background:#222; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial,sans-serif; color:#fff; flex-direction:column; }
+  canvas { background:#0d1117; border:2px solid #fff; }
+  #score { margin-top:10px; font-size:24px; }
+  #instruction { margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div id="instruction">스페이스바를 눌러 게이지에 맞춰 화살을 쏘세요!</div>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+<div id="score">점수: 0</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let score = 0;
+
+// 게이지 관련
+let gauge = { x:50, y:550, width:300, height:20, value:0, direction:1, max:300 };
+
+// 화살
+let arrows = [];
+
+// 목표
+const target = { x:200, y:100, radius:50 };
+
+// 키 입력
+document.addEventListener('keydown', e=>{
+    if(e.code==='Space'){
+        shootArrow();
+    }
+});
+
+function shootArrow(){
+    // 게이지 값에 따라 속도 결정
+    const power = gauge.value / gauge.max;
+    arrows.push({ x:canvas.width/2, y:550, speed:5 + power*10 });
+    gauge.value=0; // 쏘고 나면 게이지 초기화
+}
+
+function updateGauge(){
+    gauge.value += gauge.direction*3;
+    if(gauge.value >= gauge.max || gauge.value <= 0){
+        gauge.direction *= -1;
+    }
+}
+
+function updateArrows(){
+    for(let i=arrows.length-1;i>=0;i--){
+        arrows[i].y -= arrows[i].speed;
+        // 충돌 체크
+        const dx = arrows[i].x - target.x;
+        const dy = arrows[i].y - target.y;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        if(distance < target.radius){
+            score += Math.floor((target.radius - distance) / 5) + 1; // 근접할수록 점수 높음
+            document.getElementById('score').innerText = '점수: '+score;
+            arrows.splice(i,1);
+        } else if(arrows[i].y < 0){
+            arrows.splice(i,1);
+        }
+    }
+}
+
+function drawGauge(){
+    // 게이지 배경
+    ctx.fillStyle='#555';
+    ctx.fillRect(gauge.x, gauge.y, gauge.width, gauge.height);
+    // 게이지 채움
+    ctx.fillStyle='#60a5fa';
+    ctx.fillRect(gauge.x, gauge.y, gauge.value, gauge.height);
+    // 테두리
+    ctx.strokeStyle='#fff';
+    ctx.strokeRect(gauge.x, gauge.y, gauge.width, gauge.height);
+}
+
+function drawTarget(){
+    // 목표 원 (중심이 3단계 색으로 구분)
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.radius,0,Math.PI*2);
+    ctx.fillStyle='#f87171';
+    ctx.fill();
+    ctx.closePath();
+
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.radius*0.6,0,Math.PI*2);
+    ctx.fillStyle='#facc15';
+    ctx.fill();
+    ctx.closePath();
+
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.radius*0.3,0,Math.PI*2);
+    ctx.fillStyle='#4ade80';
+    ctx.fill();
+    ctx.closePath();
+}
+
+function drawArrows(){
+    ctx.fillStyle='#fff';
+    arrows.forEach(a=>{
+        ctx.fillRect(a.x-2,a.y-10,4,10);
+    });
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawGauge();
+    drawTarget();
+    drawArrows();
+}
+
+function gameLoop(){
+    updateGauge();
+    updateArrows();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
