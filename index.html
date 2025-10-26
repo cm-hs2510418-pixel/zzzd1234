@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>수도 퀴즈 — 난이도 상</title>
+  <style>
+    :root{--bg:#0b1220;--card:#0f1724;--accent:#7dd3fc;--muted:#9ca3af;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Noto Sans KR",Roboto,"Segoe UI",Arial;margin:0}
+    html,body{height:100%}
+    body{background:linear-gradient(180deg,#071021 0%,#071a2b 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:28px}
+    .wrap{width:980px;max-width:96%;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:14px;padding:22px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:20px;letter-spacing:-0.4px}
+    .meta{color:var(--muted);font-size:13px}
+
+    .card{background:var(--card);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .question-row{display:flex;gap:18px;align-items:flex-start}
+    .left{flex:1}
+    .timer{width:180px;min-width:140px}
+    .progress{height:10px;background:rgba(255,255,255,0.04);border-radius:999px;overflow:hidden;margin-top:8px}
+    .bar{height:100%;width:100%;background:linear-gradient(90deg,var(--accent),#60a5fa)}
+
+    .qtext{font-size:18px;margin-bottom:12px}
+    .choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .choice{background:var(--glass);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.02);transition:all .18s}
+    .choice:hover{transform:translateY(-3px)}
+    .choice.correct{outline:3px solid rgba(34,197,94,0.12);box-shadow:0 6px 18px rgba(34,197,94,0.06)}
+    .choice.wrong{opacity:0.5;filter:grayscale(.3)}
+
+    .controls{display:flex;gap:8px;margin-top:12px}
+    button.btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:10px;color:var(--accent);cursor:pointer}
+    button.btn[disabled]{opacity:0.4;cursor:default}
+
+    .status{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+
+    .end-screen{display:none;flex-direction:column;gap:12px;align-items:center;text-align:center}
+    .hidden{display:none}
+
+    .review{max-height:300px;overflow:auto;margin-top:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);width:100%}
+    .small{font-size:13px;color:var(--muted)}
+
+    footer{margin-top:12px;display:flex;justify-content:space-between;align-items:center}
+    .highscore{color:#f0f9ff}
+
+    @media(max-width:720px){.question-row{flex-direction:column}.timer{width:100%}.choices{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>수도 퀴즈 — 난이도 상</h1>
+        <div class="meta">세계 주요 국가들의 수도를 맞히는 문제입니다. 힌트와 50:50을 전략적으로 사용하세요.</div>
+      </div>
+      <div class="meta">문제 수: <span id="total">12</span> · 타이머: <span id="perQ">20</span>초</div>
+    </header>
+
+    <div class="card">
+      <div class="question-row">
+        <div class="left">
+          <div class="qtext" id="qtext">문제 로딩 중...</div>
+          <div class="choices" id="choices"></div>
+
+          <div class="controls">
+            <button class="btn" id="hintBtn">힌트 (대륙 표시)</button>
+            <button class="btn" id="fiftyBtn">50:50</button>
+            <button class="btn" id="skipBtn">스킵 (-2점)</button>
+          </div>
+          <div class="status">
+            <div>점수: <strong id="score">0</strong></div>
+            <div>남은 힌트: <strong id="hints">2</strong></div>
+            <div>남은 50:50: <strong id="fifties">1</strong></div>
+            <div>연속 정답: <strong id="streak">0</strong></div>
+          </div>
+        </div>
+
+        <div class="timer card">
+          <div class="small">남은 시간</div>
+          <div class="progress" aria-hidden>
+            <div class="bar" id="bar"></div>
+          </div>
+          <div style="margin-top:8px;font-size:24px;text-align:center" id="timeNum">20s</div>
+
+          <div style="margin-top:14px" class="small">난이도: <strong id="level">상</strong></div>
+          <div style="margin-top:8px" class="small">현재 문제: <strong id="index">0</strong>/<strong id="total2">0</strong></div>
+        </div>
+      </div>
+
+      <div class="end-screen" id="endScreen">
+        <h2 id="endTitle">결과</h2>
+        <div class="small">최종점수: <strong id="finalScore">0</strong></div>
+        <div class="small">최고점수: <strong id="best">0</strong></div>
+        <div class="review" id="review"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" id="restart">다시하기</button>
+          <button class="btn" id="share">결과 복사</button>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      <div class="small">설명: 정답 시 기본 +10점, 연속 정답 보너스 +5점/스택, 빠르게 맞힐수록 시간보너스. 오답은 -3점.</div>
+      <div class="highscore">로컬 최고점은 브라우저에 저장됩니다.</div>
+    </footer>
+  </div>
+
+  <script>
+    // 문제 데이터: {country, capital, continent, note}
+    const QUESTIONS = [
+      {country:'코트디부아르',capital:'야무수크로',continent:'아프리카',note:'행정수도는 야무수크로, 최대 도시는 아비장입니다.'},
+      {country:'말레이시아',capital:'쿠알라룸푸르',continent:'아시아',note:'연방직할지는 푸트라자야에 행정기구가 있음.'},
+      {country:'칠레',capital:'산티아고',continent:'남아메리카',note:'안데스 산맥 서쪽에 위치한다.'},
+      {country:'뉴질랜드',capital:'웰링턴',continent:'오세아니아',note:'북섬과 남섬 사이의 와이라라파 만에 위치.'},
+      {country:'캐나다',capital:'오타와',continent:'북아메리카',note:'온타리오주와 퀘벡주의 경계 근처.'},
+      {country:'카자흐스탄',capital:'누르술탄',continent:'아시아/유럽',note:'2019년에 누르술탄으로 개명됨.'},
+      {country:'에티오피아',capital:'아디스아바바',continent:'아프리카',note:'아프리카 연합(AU) 본부가 있음.'},
+      {country:'핀란드',capital:'헬싱키',continent:'유럽',note:'발트해 연안.'},
+      {country:'슬로베니아',capital:'류블랴나',continent:'유럽',note:'알프스와 지중해 사이에 위치.'},
+      {country:'우루과이',capital:'몬테비데오',continent:'남아메리카',note:'라플라타 강의 기슭.'},
+      {country:'이란',capital:'테헤란',continent:'아시아',note:'알보르즈 산맥 남쪽.'},
+      {country:'가봉',capital:'리브르빌',continent:'아프리카',note:'대부분의 인구가 해안에 집중.'},
+      {country:'조지아',capital:'트빌리시',continent:'유럽/아시아',note:'쿠바니와 쿠라 강 유역.'},
+      {country:'몽골',capital:'울란바토르',continent:'아시아',note:'세계에서 인구밀도가 낮은 나라의 수도.'},
+      {country:'팔레스타인',capital:'라말라(행정)',continent:'아시아',note:'정치적 상황으로 수도 표기가 민감함.'}
+    ];
+
+    // 설정
+    const TOTAL = 12; // 사용자에게 낼 문제 수
+    const PER_Q = 20; // 초
+
+    // 상태
+    let pool = [];
+    let currentIndex = 0;
+    let score = 0;
+    let streak = 0;
+    let timeLeft = PER_Q;
+    let timerId = null;
+    let hints = 2;
+    let fifties = 1;
+    let usedFiftyThisQ = false;
+    const review = [];
+
+    // UI
+    const qtext = document.getElementById('qtext');
+    const choicesEl = document.getElementById('choices');
+    const bar = document.getElementById('bar');
+    const timeNum = document.getElementById('timeNum');
+    const scoreEl = document.getElementById('score');
+    const hintsEl = document.getElementById('hints');
+    const fiftiesEl = document.getElementById('fifties');
+    const streakEl = document.getElementById('streak');
+    const indexEl = document.getElementById('index');
+    const totalEl = document.getElementById('total');
+    const total2El = document.getElementById('total2');
+    const levelEl = document.getElementById('level');
+    const endScreen = document.getElementById('endScreen');
+    const finalScore = document.getElementById('finalScore');
+    const bestEl = document.getElementById('best');
+    const reviewEl = document.getElementById('review');
+
+    document.getElementById('total').textContent = TOTAL;
+    document.getElementById('perQ').textContent = PER_Q;
+    total2El.textContent = TOTAL;
+
+    function start() {
+      // 랜덤으로 문제 풀 구성
+      pool = shuffle([...QUESTIONS]).slice(0, TOTAL);
+      currentIndex = 0; score = 0; streak = 0; hints = 2; fifties = 1; review.length = 0;
+      updateUI();
+      showQuestion();
+    }
+
+    function showQuestion(){
+      clearTimer();n
+    }
+
+    // 작은 유틸
+    function shuffle(a){return a.sort(()=>Math.random()-0.5)}
+    function clearTimer(){ if(timerId) {clearInterval(timerId); timerId=null} }
+
+    // 질문 렌더
+    function renderQuestion(qObj){
+      qtext.textContent = `Q${currentIndex+1}. ${qObj.country}의 수도는?`;
+      indexEl.textContent = `${currentIndex+1}`;
+      levelEl.textContent = difficultyLabel(qObj);
+
+      // 정답과 오답 생성
+      const answers = generateChoices(qObj.capital);
+      choicesEl.innerHTML = '';
+      answers.forEach(a=>{
+        const btn = document.createElement('div');btn.className='choice';btn.tabIndex=0;btn.textContent=a;btn.onclick=()=>selectAnswer(a,qObj);
+        choicesEl.appendChild(btn);
+      });
+
+      // reset lifeline flag
+      usedFiftyThisQ = false;
+      document.getElementById('hintBtn').disabled = hints<=0;
+      document.getElementById('fiftyBtn').disabled = fifties<=0;
+
+      // 타이머 시작
+      timeLeft = PER_Q;updateTimerUI();
+      timerId = setInterval(()=>{
+        timeLeft-=0.2; if(timeLeft<=0){timeLeft=0;updateTimerUI(); clearInterval(timerId); handleTimeout(qObj);} else updateTimerUI();
+      },200);
+    }
+
+    function generateChoices(correct){
+      // 같은 대륙이거나 비슷 발음의 오답 포함
+      const poolCaps = QUESTIONS.map(x=>x.capital).filter(c=>c!==correct);
+      const picks = shuffle(poolCaps).slice(0,3);
+      picks.push(correct);return shuffle(picks);
+    }
+
+    function selectAnswer(answer,qObj){
+      if(timerId===null) return; // 이미 처리됨
+      clearTimer();
+      const choices = Array.from(document.querySelectorAll('.choice'));
+      choices.forEach(c=>c.onclick=null);
+
+      const correct = (answer===qObj.capital);
+      if(correct){
+        // 점수 계산
+        const base = 10;
+        const timeBonus = Math.round((timeLeft/PER_Q)*5);
+        streak += 1;
+        const streakBonus = (streak-1)*5; // 첫 연속은 0
+        const gained = base + timeBonus + streakBonus;
+        score += gained;
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+
+        // 표시
+        choices.forEach(c=>{ if(c.textContent===answer) c.classList.add('correct'); else c.classList.add('wrong') });
+        review.push({q:qObj.country, your:answer, correct:qObj.capital, ok:true, note:qObj.note});
+      } else {
+        // 오답 처리
+        streak = 0;
+        score -= 3; if(score<0) score=0;
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+        choices.forEach(c=>{ if(c.textContent===qObj.capital) c.classList.add('correct'); if(c.textContent===answer) c.classList.add('wrong') });
+        review.push({q:qObj.country, your:answer, correct:qObj.capital, ok:false, note:qObj.note});
+      }
+
+      // 다음으로 자동 이동
+      setTimeout(()=>{ nextQuestion(); },1100);
+    }
+
+    function handleTimeout(qObj){
+      streak = 0; score -= 1; if(score<0) score=0; scoreEl.textContent = score; streakEl.textContent = streak;
+      const choices = Array.from(document.querySelectorAll('.choice'));
+      choices.forEach(c=>{ if(c.textContent===qObj.capital) c.classList.add('correct'); else c.classList.add('wrong') });
+      review.push({q:qObj.country, your:'시간초과', correct:qObj.capital, ok:false, note:qObj.note});
+      setTimeout(()=>nextQuestion(),1100);
+    }
+
+    function nextQuestion(){
+      currentIndex++;
+      if(currentIndex>=pool.length){ finish(); return }
+      renderQuestion(pool[currentIndex]);
+    }
+
+    function finish(){
+      clearTimer();
+      endScreen.style.display='flex';
+      document.getElementById('finalScore').textContent = score;
+      // best
+      const key = 'capitals_quiz_best';
+      const best = parseInt(localStorage.getItem(key)||'0',10);
+      if(score>best) localStorage.setItem(key,score);
+      bestEl.textContent = localStorage.getItem(key)||0;
+
+      // 리뷰 렌더
+      reviewEl.innerHTML = '';
+      review.forEach((r,i)=>{
+        const el = document.createElement('div'); el.className='small';
+        el.innerHTML = `<strong>${i+1}. ${r.q}</strong> — 당신: ${r.your} · 정답: ${r.correct}<div class="small">힌트: ${r.note}</div>`;
+        reviewEl.appendChild(el);
+      });
+    }
+
+    // Lifelines
+    document.getElementById('hintBtn').addEventListener('click',()=>{
+      if(hints<=0) return; hints--; hintsEl.textContent = hints; const qObj = pool[currentIndex];
+      // 대륙 표시
+      alert(`${qObj.country}는 ${qObj.continent}에 있습니다.`);
+    });
+
+    document.getElementById('fiftyBtn').addEventListener('click',()=>{
+      if(fifties<=0 || usedFiftyThisQ) return; fifties--; fiftiesEl.textContent=fifties; usedFiftyThisQ=true;
+      // 두 답 제거 (정답 외) 랜덤으로
+      const choices = Array.from(document.querySelectorAll('.choice')).filter(c=>!c.classList.contains('correct'));
+      const correctText = pool[currentIndex].capital;
+      const removable = choices.filter(c=>c.textContent!==correctText);
+      shuffle(removable);
+      if(removable.length>1){ removable[0].classList.add('wrong'); removable[1].classList.add('wrong'); removable[0].onclick=null; removable[1].onclick=null }
+    });
+
+    document.getElementById('skipBtn').addEventListener('click',()=>{
+      // 스킵 -2점
+      score -= 2; if(score<0) score=0; scoreEl.textContent = score; review.push({q:pool[currentIndex].country,your:'스킵',correct:pool[currentIndex].capital,ok:false,note:pool[currentIndex].note}); clearTimer(); setTimeout(()=>nextQuestion(),300);
+    });
+
+    document.getElementById('restart').addEventListener('click',()=>{ endScreen.style.display='none'; start(); });
+    document.getElementById('share').addEventListener('click',()=>{ const text = `내 수도퀴즈 점수: ${score}점 (${new Date().toLocaleString()})`; navigator.clipboard?.writeText(text).then(()=>alert('결과가 복사되었습니다.')); });
+
+    function updateTimerUI(){
+      const fraction = timeLeft / PER_Q; bar.style.width = `${Math.max(6,fraction*100)}%`; timeNum.textContent = `${Math.ceil(timeLeft)}s`;
+    }
+
+    function updateUI(){ scoreEl.textContent=score; hintsEl.textContent=hints; fiftiesEl.textContent=fifties; streakEl.textContent=streak; }
+
+    function difficultyLabel(q){
+      // 임의로 일부 국가 난이도를 상/중/하로 표시
+      const hard = ['코트디부아르','카자흐스탄','가봉','조지아','팔레스타인'];
+      if(hard.includes(q.country)) return '상';
+      const med = ['몽골','슬로베니아','에티오피아','우루과이'];
+      if(med.includes(q.country)) return '중';
+      return '하';
+    }
+
+    // 초기화
+    // 작은 버그 픽: showQuestion 참조 정리
+    function showQuestion(){ renderQuestion(pool[currentIndex]); }
+
+    // 시작
+    start();
+  </script>
+</body>
+</html>
